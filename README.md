@@ -81,6 +81,8 @@ This MCP server provides the following Solana API tools:
 ### Account Information
 - [get_solana_balance](docs/get_solana_balance.md) - Get the SOL balance for a Solana wallet address
 - [get_account_info](docs/get_account_info.md) - Get all information associated with a Solana account by its address
+- [get_multiple_accounts](docs/get_multiple_accounts.md) - Get information for multiple Solana accounts at once
+- [get_program_accounts](docs/get_program_accounts.md) - Get all accounts owned by a specific Solana program
 - [get_largest_accounts](docs/get_largest_accounts.md) - Get the largest accounts on the Solana network
 - [get_minimum_balance_for_rent_exemption](docs/get_minimum_balance_for_rent_exemption.md) - Get the minimum balance required for rent exemption for a data size
 
@@ -108,9 +110,11 @@ This MCP server provides the following Solana API tools:
 - [get_health](docs/get_health.md) - Check the health of the connected Solana node
 - [get_highest_snapshot_slot](docs/get_highest_snapshot_slot.md) - Get the highest snapshot slots available on the Solana node
 - [get_identity](docs/get_identity.md) - Get the identity public key of the current Solana node
+- [get_recent_performance_samples](docs/get_recent_performance_samples.md) - Get recent performance samples from the Solana network
 
 ### Transaction & Fee Information
 - [get_fee_for_message](docs/get_fee_for_message.md) - Get the fee in lamports for a message
+- [get_recent_prioritization_fees](docs/get_recent_prioritization_fees.md) - Get recent prioritization fees from the Solana network
 
 ### Inflation & Economics
 - [get_inflation_governor](docs/get_inflation_governor.md) - Get the inflation governor parameters from the Solana cluster

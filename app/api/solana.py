@@ -31,7 +31,11 @@ from app.services.solana import (
     get_leader_schedule,
     get_max_retransmit_slot,
     get_max_shred_insert_slot,
-    get_minimum_balance_for_rent_exemption
+    get_minimum_balance_for_rent_exemption,
+    get_multiple_accounts,
+    get_program_accounts,
+    get_recent_performance_samples,
+    get_recent_prioritization_fees
 )
 from app.models.solana import (
     SolanaBalanceResponse, 
@@ -59,7 +63,11 @@ from app.models.solana import (
     SolanaLeaderScheduleResponse,
     SolanaMaxRetransmitSlotResponse,
     SolanaMaxShredInsertSlotResponse,
-    SolanaMinimumBalanceForRentExemptionResponse
+    SolanaMinimumBalanceForRentExemptionResponse,
+    SolanaMultipleAccountsResponse,
+    SolanaProgramAccountsResponse,
+    SolanaRecentPerformanceSamplesResponse,
+    SolanaRecentPrioritizationFeesResponse
 )
 
 
@@ -689,6 +697,145 @@ def get_minimum_balance_for_rent_exemption_endpoint(
     Get the minimum balance required for rent exemption for a data size
     """
     response = get_minimum_balance_for_rent_exemption(data_size, commitment)
+    return response.dict(exclude_none=True)
+
+
+@app.tool(
+    name="get_multiple_accounts",
+    description="Get information for multiple Solana accounts at once.",
+    tags={"solana", "account", "crypto"}
+)
+def get_multiple_accounts_endpoint(
+    addresses: List[str] = Field(description="List of account addresses to query (max 100)"),
+    encoding: str = Field(
+        default="base58", 
+        description="Encoding format for Account data (base58, base64, base64+zstd, jsonParsed)"
+    ),
+    data_slice_offset: Optional[int] = Field(
+        default=None, 
+        description="Byte offset to start reading account data (only for base58, base64, or base64+zstd encodings)"
+    ),
+    data_slice_length: Optional[int] = Field(
+        default=None, 
+        description="Number of bytes to return (only for base58, base64, or base64+zstd encodings)"
+    ),
+    commitment: Optional[str] = Field(
+        default=None, 
+        description="The level of commitment (processed, confirmed, finalized)"
+    )
+) -> dict:
+    """
+    Get information for multiple accounts at once.
+    
+    This tool queries the Solana blockchain via RPC to retrieve detailed account information
+    for multiple accounts in a single request, which is more efficient than multiple individual calls.
+    
+    For token accounts, program accounts, and other specialized account types, 
+    use 'jsonParsed' encoding to receive structured data.
+    """
+    # Build data_slice dictionary if both offset and length are provided
+    data_slice = None
+    if data_slice_offset is not None and data_slice_length is not None:
+        data_slice = {"offset": data_slice_offset, "length": data_slice_length}
+    
+    response = get_multiple_accounts(addresses, encoding, data_slice, commitment)
+    return response.dict(exclude_none=True)
+
+
+@app.tool(
+    name="get_program_accounts",
+    description="Get all accounts owned by a specific Solana program.",
+    tags={"solana", "program", "account", "crypto"}
+)
+def get_program_accounts_endpoint(
+    program_id: str = Field(description="Program ID to query accounts for, as base-58 encoded string"),
+    encoding: str = Field(
+        default="base58", 
+        description="Encoding format for Account data (base58, base64, base64+zstd, jsonParsed)"
+    ),
+    data_slice_offset: Optional[int] = Field(
+        default=None, 
+        description="Byte offset to start reading account data (only for base58, base64, or base64+zstd encodings)"
+    ),
+    data_slice_length: Optional[int] = Field(
+        default=None, 
+        description="Number of bytes to return (only for base58, base64, or base64+zstd encodings)"
+    ),
+    filters: Optional[List[Dict]] = Field(
+        default=None, 
+        description="Optional filters to apply to accounts (memcmp or dataSize filters)"
+    ),
+    with_context: bool = Field(
+        default=False, 
+        description="Whether to wrap the result in an RpcResponse JSON object"
+    ),
+    commitment: Optional[str] = Field(
+        default=None, 
+        description="The level of commitment (processed, confirmed, finalized)"
+    )
+) -> dict:
+    """
+    Get all accounts owned by a specific program.
+    
+    This tool queries the Solana blockchain via RPC to retrieve all accounts
+    that are owned by the specified program. Useful for finding token accounts,
+    program data accounts, and other program-specific accounts.
+    
+    Use filters to narrow down results by account data size or specific byte patterns.
+    """
+    # Build data_slice dictionary if both offset and length are provided
+    data_slice = None
+    if data_slice_offset is not None and data_slice_length is not None:
+        data_slice = {"offset": data_slice_offset, "length": data_slice_length}
+    
+    response = get_program_accounts(program_id, encoding, data_slice, filters, with_context, commitment)
+    return response.dict(exclude_none=True)
+
+
+@app.tool(
+    name="get_recent_performance_samples",
+    description="Get recent performance samples from the Solana network.",
+    tags={"solana", "performance", "network", "crypto"}
+)
+def get_recent_performance_samples_endpoint(
+    limit: Optional[int] = Field(
+        default=None, 
+        description="Number of samples to return (max 720, default 720)"
+    )
+) -> dict:
+    """
+    Get recent performance samples from the Solana network.
+    
+    This tool queries the Solana blockchain via RPC to retrieve recent performance
+    metrics including transaction throughput and slot timing information.
+    
+    Performance samples provide insights into network health and transaction processing rates.
+    """
+    response = get_recent_performance_samples(limit)
+    return response.dict(exclude_none=True)
+
+
+@app.tool(
+    name="get_recent_prioritization_fees",
+    description="Get recent prioritization fees from the Solana network.",
+    tags={"solana", "fee", "prioritization", "transaction", "crypto"}
+)
+def get_recent_prioritization_fees_endpoint(
+    addresses: Optional[List[str]] = Field(
+        default=None, 
+        description="Optional list of account addresses to get prioritization fees for"
+    )
+) -> dict:
+    """
+    Get recent prioritization fees from the Solana network.
+    
+    This tool queries the Solana blockchain via RPC to retrieve recent prioritization
+    fees that have been paid to prioritize transactions in the network.
+    
+    Prioritization fees help transactions get processed faster during network congestion.
+    If addresses are provided, returns fees for transactions that write-lock those accounts.
+    """
+    response = get_recent_prioritization_fees(addresses)
     return response.dict(exclude_none=True)
 
 

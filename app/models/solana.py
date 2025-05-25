@@ -341,4 +341,58 @@ class SolanaMinimumBalanceForRentExemptionResponse(BaseModel):
     status: str
     lamports: Optional[int] = Field(None, description="Minimum balance in lamports to be exempt from rent")
     message: Optional[str] = Field(None, description="Error message if status is error")
+    error: Optional[dict] = Field(None, description="Error details if status is error")
+
+
+class SolanaMultipleAccountsResponse(BaseModel):
+    """Response model for multiple accounts queries"""
+    status: str
+    value: Optional[List[Optional[SolanaAccountData]]] = Field(None, description="List of account information, can contain None if an address is not found")
+    context: Optional[Dict] = Field(None, description="RPC response context")
+    message: Optional[str] = Field(None, description="Error message if status is error")
+    error: Optional[dict] = Field(None, description="Error details if status is error")
+
+
+class SolanaProgramAccount(BaseModel):
+    """Model for program account information"""
+    pubkey: str = Field(description="Account public key as base-58 encoded string")
+    account: SolanaAccountData = Field(description="Account data")
+
+
+class SolanaProgramAccountsResponse(BaseModel):
+    """Response model for program accounts queries"""
+    status: str
+    accounts: Optional[List[SolanaProgramAccount]] = Field(None, description="List of program accounts")
+    context: Optional[Dict] = Field(None, description="RPC response context if withContext was true")
+    message: Optional[str] = Field(None, description="Error message if status is error")
+    error: Optional[dict] = Field(None, description="Error details if status is error")
+
+
+class SolanaPerformanceSample(BaseModel):
+    """Model for performance sample data"""
+    slot: int = Field(description="Slot in which sample was taken")
+    numTransactions: int = Field(description="Number of transactions in sample")
+    numSlots: int = Field(description="Number of slots in sample")
+    samplePeriodSecs: int = Field(description="Number of seconds in a sample window")
+
+
+class SolanaRecentPerformanceSamplesResponse(BaseModel):
+    """Response model for recent performance samples queries"""
+    status: str
+    samples: Optional[List[SolanaPerformanceSample]] = Field(None, description="List of recent performance samples")
+    message: Optional[str] = Field(None, description="Error message if status is error")
+    error: Optional[dict] = Field(None, description="Error details if status is error")
+
+
+class SolanaPrioritizationFee(BaseModel):
+    """Model for prioritization fee data"""
+    slot: int = Field(description="Slot in which the fee was observed")
+    prioritizationFee: int = Field(description="The per-compute-unit fee paid by at least one successfully landed transaction, specified in increments of micro-lamports (0.000001 lamports)")
+
+
+class SolanaRecentPrioritizationFeesResponse(BaseModel):
+    """Response model for recent prioritization fees queries"""
+    status: str
+    fees: Optional[List[SolanaPrioritizationFee]] = Field(None, description="List of recent prioritization fees")
+    message: Optional[str] = Field(None, description="Error message if status is error")
     error: Optional[dict] = Field(None, description="Error details if status is error") 

@@ -42,7 +42,14 @@ from app.models.solana import (
     SolanaLeaderScheduleResponse,
     SolanaMaxRetransmitSlotResponse,
     SolanaMaxShredInsertSlotResponse,
-    SolanaMinimumBalanceForRentExemptionResponse
+    SolanaMinimumBalanceForRentExemptionResponse,
+    SolanaMultipleAccountsResponse,
+    SolanaProgramAccountsResponse,
+    SolanaProgramAccount,
+    SolanaRecentPerformanceSamplesResponse,
+    SolanaRecentPrioritizationFeesResponse,
+    SolanaPerformanceSample,
+    SolanaPrioritizationFee
 )
 
 
@@ -1571,4 +1578,299 @@ def get_minimum_balance_for_rent_exemption(
         return SolanaMinimumBalanceForRentExemptionResponse(
             status="error",
             message=f"Failed to get minimum balance for rent exemption: {str(e)}"
+        )
+
+
+def get_multiple_accounts(
+    addresses: List[str],
+    encoding: str = "base58",
+    data_slice: Optional[Dict[str, int]] = None,
+    commitment: Optional[str] = None
+) -> 'SolanaMultipleAccountsResponse':
+    """
+    Get information for multiple accounts
+    
+    Args:
+        addresses: List of account addresses to query (max 100)
+        encoding: Encoding format for Account data (base58, base64, base64+zstd, jsonParsed)
+        data_slice: Optional slice of account data {offset: int, length: int}
+        commitment: The level of commitment (processed, confirmed, finalized)
+    
+    Returns:
+        SolanaMultipleAccountsResponse: The multiple accounts information
+    """
+    # Build RPC request params
+    params = [addresses, {"encoding": encoding}]
+    
+    # Add dataSlice if provided
+    if data_slice:
+        params[1]["dataSlice"] = data_slice
+        
+    # Add commitment if provided
+    if commitment:
+        params[1]["commitment"] = commitment
+    
+    # Build full RPC request
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getMultipleAccounts",
+        "params": params
+    }
+    
+    # Send request to Solana RPC node
+    try:
+        response = requests.post(SOLANA_RPC_URL, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        
+        if "error" in result:
+            return SolanaMultipleAccountsResponse(
+                status="error",
+                message=f"RPC error: {result['error']['message']}",
+                error=result["error"]
+            )
+        
+        # Parse account data
+        accounts_data = []
+        for account_data in result["result"]["value"]:
+            if account_data is None:
+                accounts_data.append(None)
+            else:
+                accounts_data.append(SolanaAccountData(
+                    data=account_data["data"],
+                    executable=account_data["executable"],
+                    lamports=account_data["lamports"],
+                    owner=account_data["owner"],
+                    rentEpoch=account_data["rentEpoch"],
+                    space=account_data.get("space", 0)
+                ))
+        
+        return SolanaMultipleAccountsResponse(
+            status="success",
+            value=accounts_data,
+            context=result["result"].get("context", {})
+        )
+        
+    except Exception as e:
+        return SolanaMultipleAccountsResponse(
+            status="error",
+            message=f"Failed to get multiple accounts: {str(e)}"
+        )
+
+
+def get_program_accounts(
+    program_id: str,
+    encoding: str = "base58",
+    data_slice: Optional[Dict[str, int]] = None,
+    filters: Optional[List[Dict]] = None,
+    with_context: bool = False,
+    commitment: Optional[str] = None
+) -> 'SolanaProgramAccountsResponse':
+    """
+    Get all accounts owned by a program
+    
+    Args:
+        program_id: Program ID to query accounts for
+        encoding: Encoding format for Account data (base58, base64, base64+zstd, jsonParsed)
+        data_slice: Optional slice of account data {offset: int, length: int}
+        filters: Optional filters to apply to accounts
+        with_context: Whether to wrap the result in an RpcResponse JSON object
+        commitment: The level of commitment (processed, confirmed, finalized)
+    
+    Returns:
+        SolanaProgramAccountsResponse: The program accounts information
+    """
+    # Build RPC request params
+    params = [program_id, {"encoding": encoding, "withContext": with_context}]
+    
+    # Add dataSlice if provided
+    if data_slice:
+        params[1]["dataSlice"] = data_slice
+        
+    # Add filters if provided
+    if filters:
+        params[1]["filters"] = filters
+        
+    # Add commitment if provided
+    if commitment:
+        params[1]["commitment"] = commitment
+    
+    # Build full RPC request
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getProgramAccounts",
+        "params": params
+    }
+    
+    # Send request to Solana RPC node
+    try:
+        response = requests.post(SOLANA_RPC_URL, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        
+        if "error" in result:
+            return SolanaProgramAccountsResponse(
+                status="error",
+                message=f"RPC error: {result['error']['message']}",
+                error=result["error"]
+            )
+        
+        # Parse account data
+        accounts = []
+        result_data = result["result"]
+        
+        # Handle both with_context and without_context responses
+        if with_context and "value" in result_data:
+            account_list = result_data["value"]
+            context = result_data.get("context", {})
+        else:
+            account_list = result_data
+            context = {}
+        
+        for account_item in account_list:
+            pubkey = account_item["pubkey"]
+            account_data = account_item["account"]
+            
+            accounts.append(SolanaProgramAccount(
+                pubkey=pubkey,
+                account=SolanaAccountData(
+                    data=account_data["data"],
+                    executable=account_data["executable"],
+                    lamports=account_data["lamports"],
+                    owner=account_data["owner"],
+                    rentEpoch=account_data["rentEpoch"],
+                    space=account_data.get("space", 0)
+                )
+            ))
+        
+        return SolanaProgramAccountsResponse(
+            status="success",
+            accounts=accounts,
+            context=context if with_context else None
+        )
+        
+    except Exception as e:
+        return SolanaProgramAccountsResponse(
+            status="error",
+            message=f"Failed to get program accounts: {str(e)}"
+        )
+
+
+def get_recent_performance_samples(
+    limit: Optional[int] = None
+) -> 'SolanaRecentPerformanceSamplesResponse':
+    """
+    Get recent performance samples
+    
+    Args:
+        limit: Number of samples to return (max 720, default 720)
+    
+    Returns:
+        SolanaRecentPerformanceSamplesResponse: The recent performance samples
+    """
+    # Build RPC request params
+    params = []
+    if limit is not None:
+        params.append(limit)
+    
+    # Build full RPC request
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getRecentPerformanceSamples",
+        "params": params
+    }
+    
+    # Send request to Solana RPC node
+    try:
+        response = requests.post(SOLANA_RPC_URL, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        
+        if "error" in result:
+            return SolanaRecentPerformanceSamplesResponse(
+                status="error",
+                message=f"RPC error: {result['error']['message']}",
+                error=result["error"]
+            )
+        
+        # Parse performance samples
+        samples = []
+        for sample in result["result"]:
+            samples.append(SolanaPerformanceSample(
+                slot=sample["slot"],
+                numTransactions=sample["numTransactions"],
+                numSlots=sample["numSlots"],
+                samplePeriodSecs=sample["samplePeriodSecs"]
+            ))
+        
+        return SolanaRecentPerformanceSamplesResponse(
+            status="success",
+            samples=samples
+        )
+        
+    except Exception as e:
+        return SolanaRecentPerformanceSamplesResponse(
+            status="error",
+            message=f"Failed to get recent performance samples: {str(e)}"
+        )
+
+
+def get_recent_prioritization_fees(
+    addresses: Optional[List[str]] = None
+) -> 'SolanaRecentPrioritizationFeesResponse':
+    """
+    Get recent prioritization fees
+    
+    Args:
+        addresses: Optional list of account addresses to get prioritization fees for
+    
+    Returns:
+        SolanaRecentPrioritizationFeesResponse: The recent prioritization fees
+    """
+    # Build RPC request params
+    params = []
+    if addresses is not None:
+        params.append(addresses)
+    
+    # Build full RPC request
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getRecentPrioritizationFees",
+        "params": params
+    }
+    
+    # Send request to Solana RPC node
+    try:
+        response = requests.post(SOLANA_RPC_URL, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        
+        if "error" in result:
+            return SolanaRecentPrioritizationFeesResponse(
+                status="error",
+                message=f"RPC error: {result['error']['message']}",
+                error=result["error"]
+            )
+        
+        # Parse prioritization fees
+        fees = []
+        for fee_data in result["result"]:
+            fees.append(SolanaPrioritizationFee(
+                slot=fee_data["slot"],
+                prioritizationFee=fee_data["prioritizationFee"]
+            ))
+        
+        return SolanaRecentPrioritizationFeesResponse(
+            status="success",
+            fees=fees
+        )
+        
+    except Exception as e:
+        return SolanaRecentPrioritizationFeesResponse(
+            status="error",
+            message=f"Failed to get recent prioritization fees: {str(e)}"
         ) 
